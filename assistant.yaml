@@ -1,0 +1,1636 @@
+#-------------------------------------------
+# SUBTITUTIONS - basic definitions and description of the device
+#-------------------------------------------
+substitutions:
+  device_name: ESP-Assistant
+  friendly_name: Assistant
+  created_by: "StudioTiiM 2022-2023"
+  device_description: "Assistant E-ink Tablet 4.2"
+
+#-------------------------------------------
+# POWER CONSUMPTION 
+# whit multimeter
+#-------------------------------------------
+# Power consumption 4.2V
+# Booting MCU: 260mA
+# Refreshing: 260mA
+# Normal: 35-50mA
+# Deep sleep: 0.4mA
+# Final tested battery life:
+
+#-------------------------------------------
+# DEFINE PINS AND VARIABILES
+# CIRCUIT AND MODULES - basic definitions and description of the device
+#-------------------------------------------
+
+ # ----- MCU -----
+  # Module: ESP32-S + adapter
+  
+ # ----- CHARGING -----
+  # Module: TP4056 whitout balancer 5VDC USB micro
+   # Modification: cut StepUP section / current Rprog change 1.2k to 1.8k
+   # Chip: CL4056D
+   # Specification: Vin 4.5 ~ 8 VDC (BMS modul max in 5VDC) / Out 4.2 VDC / Current (5VDC) standby: 0.366mA charging: 0.667mA discharging: max 2A / Led indicator charging red; full charging green
+   # Power consumption: standby 0.366mA / charging 0.667mA / discharging max. 1A
+   # Calculate: New current replace resistor prog: Ibat = 1200 / Rprog = 1200 / 1800 = 0.667A
+   # Circuit: VDC 5V in to GPIO whit divider (R1 = 10k(VCC); R2 = 22k(GND); out 1.56V)
+  charging_sensor: GPIO34
+  
+ # ----- BATTERY -----
+  # Battery: NACCON 105050 3.7V 3000mAh 202009
+   # Protection: BMS 1S
+    # Chip: DW01 + 8205A
+    # Specification: overcharge 4.25V / discharge 2.5V / current 1A / overcurrent 2.5 A
+    # Power consumption: standby 3.6uA
+   # Circuit 1: ADC battery measure switch: connect on MCU 10kΩ to Base NPN3904 and BatVCC 100kΩ to base PNP3906 transistor
+  battery_adc: GPIO39
+   # Circuit 2: ADC battery measure voltage: Divider 4.2V to gpio 470kΩ(GND) and 220kΩ(BAT+) 2.86V
+  battery_adc_switch: GPIO23
+
+ # ----- DISPLAY -----
+  # Module: e-Paper Module 4.2inch 400x300px rev 2.1 Waveshare
+   # Specifications: Voltage: 3.3 ~ 5V / Color: black/white / full refresh time 4s / view angle >170°
+   # Power consumption: standby 3.4uA / refresh 5.4mA
+   # Circuit: Interface: SPI
+  eink_cs_pin: GPIO26
+  eink_dc_pin: GPIO27
+  eink_busy_pin: GPIO32
+  eink_reset_pin: GPIO33
+  
+ # ----- PIR -----
+  # Module: Pir sensor SB312
+   # Specifications: Voltage: 2.7 ~ 12V / Delay time: 2s / Block time: 2s / treigger mode: repeatable / Sense: degree < 90° lengh: < 3m / Working temperature -20 ~ 60 °C
+   # Circuit: VCC, GND, Vout to GPIO
+   # Power consumption: standby: 9uA / detected: 15uA
+  pir_sensor: GPIO35 # module out 3.2V GPIO12 out only 1.7V, GPIO25 out only 0.9V, 
+
+ # ----- BUTTONS -----
+  # Module: SMD Push button 4pin 6x6x3.1mm
+   # Specification: max 12VDC / Rated current 0.1A / Resistance: Contact < 0.03Ω; isolation > 100MΩ / Life: 100 000 times
+   # Circuit: GND -> Button -> GPIO + 10kΩ -> VCC
+  button_1: GPIO18 # left
+  button_2: GPIO17 # middle
+  button_3: GPIO16 # right
+
+ # ----- LEDS -----
+  # Modul: Yellow led
+   # Circuit: VCC -> LED -> 220Ω resistor to GPIO
+   # Power consumption: 5mA
+  led_sensor: GPIO19
+
+ # ----- TEMPERATURE / HUMIDITY SENSORS -----
+  # module: AHT25 - humidity / temperature
+   # Specifications: Voltage: 2.2 ~ 5.5V / Operational Range: Temperature: -40 ~ +80°C Humidity: 0~100% / Accuracy: Temperature: +-0.3°C Humidity: +-2%
+   # Circuit: Interface: I2C; Pullup resistor: not necessary for short length (4.7kΩ)
+    # Top view 
+    # ---------------------------
+    # PINS:  1  |  2  |  3  |  4
+    # NAME: VDD | SDA | GND | SCL
+    # ---------------------------
+   # Power consumption: standby 4µA; measure 980µA
+ 
+ # ----- REAL TIME CLOCK -----
+  # Modul: HW-084 Clock module
+   # Modification: unsolder battery holder
+   # Chip: DS3231 RTC
+   # Specifications: Voltage: 2.3 ~ 5.5V / Operational Range: Temperature: 0 ~ +70°C  / 0-40°C 2ppm error 1min
+   # Circuit: Interface: I2C; only VCC, GND, SDA, SCL pin connected
+   # Power consumption: standby <110µA; measure <200µA
+
+ # ---------------------------------------------
+ # HOME ASSISTANTN IMPORTET SENSORS
+ # In configuration.yaml:
+ # ---- multiple sensor in one -----
+ # sensor:
+ #  - platform: template
+ #    sensors:
+ #      name_of_sensor:
+ #       value_template: "{{states('sensor.name_sensor1') | float(default=0) | round(1)}}#{{ states('sensor.gas_consumption_daily') | float(default=0) | round(1) }}#......#"
+ #
+ # float       - decimal number
+ # (default=0) - when sensor nan state send 0
+ # round(1)    - rounding to one decimal place
+ # "#"         - distribution of sensors (any character)
+ #
+ # ---- name of the the of week ----
+ # sensor:
+ #  - platform: template
+ #    sensors:
+ #       dayoftheweek:
+ #         value_template: "{{ ['Pondelok','Utorok','Streda','Štvrtok','Piatok','Sobota','Nedeľa'][now().weekday()] }}"
+ # ---- five days weather forecast
+# sensor:
+ #  - platform: template
+ #    sensors:
+ #      weather_fivedays:
+ #       friendly_name: "Five day weather"
+ #       value_template: >-
+ #         {% set days = {'Mon':'Pondelok','Tue':'Utorok','Wed':'Streda','Thu':'Štvrtok','Fri':'Piatok','Sat':'Sobota','Sun':'Nedeľa'} %}
+ #         {% for state in states.weather.openweathermap.attributes.forecast[0:4] -%}
+ #           {{ days[as_timestamp(state.datetime)| timestamp_custom("%a")] }};{{state.temperature | round(0)}}/{{ state.templow | round(0)}}°C;{{ state.condition }}#
+ #         {%- endfor %}
+ #
+ # custom integration forecast: openweathermap
+ # ------------------------------------------------
+
+  # WHEATER
+  weather_temperature: sensor.weather_station_temperature
+  weather_humidity: sensor.weather_station_humidity
+  weather_pressure: sensor.weather_station_pressure
+  weather_uv: sensor.weather_station_uv_index
+  weather_wind: sensor.weather_station_wind_speed
+  weather_rain: sensor.weather_station_rainfall_daily
+  weather_condition: weather.openweathermap
+  weather_forecast: sensor.weather_fivedays
+   
+  # CONSUMPTION
+  energy_consumption: sensor.energy_cunsumption
+   
+  # GARDEN
+  garden_moisture: sensor.zahrada_flower_moisture
+  
+  # METEOALARM
+  meteoalarm_event: binary_sensor.meteoalarm
+
+  # CONTACT SENSOR
+  contact_hall: binary_sensor.isa_dw2hl_0ba1_magnet_sensor
+  contact_vestibul: binary_sensor.chodba_okno_magnet_contact
+  contact_bedroom: binary_sensor.0x158d00041b64d8_contact
+  contact_kitchen: binary_sensor.0x158d000521d036_contact
+  contact_livingroom1: binary_sensor.0x158d000543c55e_contact
+  contact_livingroom2: binary_sensor.0x158d000521e9c4_contact
+  contact_bathroom: binary_sensor.0x158d00054889a1_contact
+  contact_kidsroom: binary_sensor.0x158d0005780cc7_contact
+  contact_fridge: binary_sensor.0x158d0005780cc7_contact
+  contact_basement1: binary_sensor.0x00158d0006ff019d_contact
+  contact_basement2: binary_sensor.0x00158d0006d66455_contact
+  contact_basement3: binary_sensor.pivnica_dvere_magnet_contact
+  contact_atelier1: binary_sensor.atelier_dvere_magnet_contact
+  contact_atelier2: binary_sensor.atelier_okno_magnet_contact
+
+  # ROOM TEMPERATURE AND HUMIDITY
+   # Hall / Vestibul / Bedroom / Kitchen / Living room / Bathroom / Kidsroom / Fridge / Base / Atelier
+  airquality_room: sensor.airquality_room
+
+  # CALENDAR
+  calendar_waste: calendar.odpady
+  calendar_waste_time: sensor.date_calendar_odpad
+  calendar_event: calendar.tiimsvk_gmail_com
+  calendar_event_time: sensor.date_calendar
+  calendar_nameday: calendar.slovenske_mena
+  calendar_dayofweek: sensor.dayoftheweek
+
+#-------------------------------------------
+# VARIABILES
+#-------------------------------------------
+  # Free pins GPIO25, GPIO36
+  
+#-------------------------------------------
+# PROTOCOLS
+#-------------------------------------------
+ # ----- PROTOCOLS PINS -----
+  # SPI
+  spi_clk_pin: GPIO14
+  spi_mosi_pin: GPIO13
+
+  # I2C
+  i2c_sda: GPIO22
+  i2c_scl: GPIO21
+  
+ # ----- PROTOCOLS SETTINGS -----
+i2c:
+ sda: "$i2c_sda"
+ scl: "$i2c_scl"
+ scan: False
+ 
+spi:
+  clk_pin: "$spi_clk_pin"
+  mosi_pin: "$spi_mosi_pin"
+
+#-------------------------------------------
+# ESP - MAIN SETTINGS
+#-------------------------------------------
+esphome:
+  name: assistant
+  project:
+    name: "studiotiim.assistant"
+    version: 2.2.1
+  platformio_options:
+    board_build.f_cpu: 160000000L # set cpu clock 160mhz
+
+  on_boot:
+#-------------------------------------------
+# After boot first prevent update eink whit timer
+#-------------------------------------------
+    - priority: 200
+      then:
+        - binary_sensor.template.publish:
+            id: time_accept_update
+            state: False
+        - light.turn_on: greenled
+        - delay: 500ms
+        - light.turn_off: greenled
+        
+        - switch.turn_on: battery_measure
+        - text_sensor.template.publish:
+            id: online_status
+            state: "Online"
+        - component.update: text_charge
+        #- lambda: id(charger).publish_state(true);
+
+#-------------------------------------------
+# Before shutdown send online state
+#-------------------------------------------
+  on_shutdown: # send offline state when mcu power off or go to deep sleep
+    priority: -850
+    then:
+      - text_sensor.template.publish:
+          id: online_status
+          state: "Offline"
+          
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+    
+logger:
+api:
+ota:
+  password: !secret ota_pass
+
+wifi:
+  fast_connect: true
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 192.168.31.153
+    gateway: 192.168.31.1
+    subnet: 255.255.255.0
+  ap:
+    ssid: "$device_name Hotspot"
+    password: "passassistant"
+
+#-------------------------------------------
+# DEEP SLEEP
+#-------------------------------------------
+deep_sleep:
+  id: deep_sleep_component
+  sleep_duration: 120min
+  run_duration: 120s
+  esp32_ext1_wakeup: 
+    pins: 
+      - $pir_sensor
+      - $charging_sensor
+    mode: ANY_HIGH
+  wakeup_pin_mode: KEEP_AWAKE
+
+#-------------------------------------------
+# LIGHT
+#-------------------------------------------
+light:
+#-------------------------------------------
+# Led green - infolight
+#-------------------------------------------
+  - platform: binary
+    name: "${friendly_name} Led State"
+    output: green_led
+    id: greenled
+    
+output:
+  - id: green_led
+    platform: gpio
+    pin: "$led_sensor"
+
+#-------------------------------------------
+# SENSORS
+#-------------------------------------------
+sensor:
+#-------------------------------------------
+# Wifi signal component
+#-------------------------------------------
+  - platform: wifi_signal
+    name: "${friendly_name} Signal"
+    id: "signal_strange"
+    update_interval: 60s
+
+#-------------------------------------------
+# Temperature a humidity sensor - AHT10
+#-------------------------------------------
+  - platform: aht10
+    temperature:
+      name: "${friendly_name} Temperature"
+      accuracy_decimals: 1
+      filters:
+        - offset: -3.5
+      id: aht_temp
+    humidity:
+      name: "${friendly_name} Humidity"
+      accuracy_decimals: 0
+      id: aht_humidity
+#      filters:
+#        - offset: -4.0
+    update_interval: 60s
+
+#-------------------------------------------
+# Battery sensor
+# ADC units whit units %
+#-------------------------------------------
+  - platform: adc
+    pin: "$battery_adc"
+    name: "${friendly_name} Battery"
+    accuracy_decimals: 0
+    unit_of_measurement: "%"
+    update_interval: never
+    filters:
+#      - multiply: 1.51
+      - calibrate_linear:
+          - 1.98 -> 0
+          - 2.7 -> 100
+      - lambda: 'return max((float)0.0, x);' # No value lower than 0
+      - lambda: 'return min((float)100.0, x);' # No value greater than 100
+      - filter_out: 0.0
+    attenuation: 11db
+    icon: mdi:battery
+    id: batlevel
+    device_class: battery
+    entity_category: config
+    on_value:
+      - if:
+          condition:
+            - binary_sensor.is_on: charger
+          then:
+            - if:
+                condition:
+                  sensor.in_range:
+                    id: batlevel
+                    above: 99
+                then:
+                  lambda: id(text_charge).publish_state("Charge complete");
+            - if:
+                condition:
+                  sensor.in_range:
+                    id: batlevel
+                    above: 10
+                    below: 99
+                then:
+                  lambda: id(text_charge).publish_state("Charge");
+            - if:
+                condition:
+                  sensor.in_range:
+                    id: batlevel
+                    below: 10
+                then:
+                  lambda: id(text_charge).publish_state("Charge Low");
+          else:
+            - if:
+                condition:
+                  sensor.in_range:
+                    id: batlevel
+                    above: 90
+                then:
+                  lambda: id(text_charge).publish_state("Full");
+            - if:
+                condition:
+                  sensor.in_range:
+                    id: batlevel
+                    above: 10
+                    below: 90
+                then:
+                  lambda: id(text_charge).publish_state("Normal");
+            - if:
+                condition:
+                  sensor.in_range:
+                    id: batlevel
+                    above: 1
+                    below: 10
+                then:
+                  lambda: id(text_charge).publish_state("Low");
+            - if:
+                condition:
+                  sensor.in_range:
+                    id: batlevel
+                    below: 1
+                then:
+                  lambda: id(text_charge).publish_state("Critical Low");
+
+#-------------------------------------------
+# Home Assistant imported sensors
+#-------------------------------------------
+# ----- WHEATER -----
+# Temperature now
+  - platform: homeassistant
+    internal: true
+    #id: temp_now
+    id: temp_now_temp
+    entity_id: $weather_temperature
+ #   on_value:
+ #     then:
+ #       
+ #       - globals.set:
+ #           id: temp_now_global
+ #           value: !lambda 'return x;'
+ #       - component.update: temp_now_temp
+        
+# temperature template global update
+#  - platform: template
+#    name: "${friendly_name} Temperature_Out_Temp"
+#    accuracy_decimals: 1
+#    id: temp_now_temp
+#    lambda: "return id(temp_now_global);"
+#    update_interval: never
+    #internal: true  
+
+# Humidity now
+  - platform: homeassistant
+    internal: true
+    id: humidity_now
+    entity_id: $weather_humidity
+
+#  - platform: template
+#    internal: true
+#    accuracy_decimals: 0
+#    id: humidity_now_temp
+#    lambda: |-
+#      return id(humidity_now_global);
+
+#Pressure now
+  - platform: homeassistant
+    internal: true
+    id: pressure_now
+    entity_id: $weather_pressure
+#UV now
+  - platform: homeassistant
+    internal: true
+    id: uv_now
+    entity_id: $weather_uv
+
+#Wind now
+  - platform: homeassistant
+    internal: true
+    id: wind_now
+    entity_id: $weather_wind
+#Rain now
+  - platform: homeassistant
+    internal: true
+    id: rain_now
+    entity_id: $weather_rain
+
+# ----- GARDEN ------
+  - platform: homeassistant
+    internal: true
+    id: garden
+    entity_id: $garden_moisture
+
+#-------------------------------------------
+# BINARY SENSORS
+#-------------------------------------------
+binary_sensor:
+#-------------------------------------------
+# Template
+# prevent update eink display whit timer
+#-------------------------------------------
+  - platform: template
+    name: "${friendly_name} Time accept"
+    id: time_accept_update
+    internal: True
+
+#-------------------------------------------
+# Pir sensor SB312 
+# motion enabled ESP and prevent deepsleep
+#-------------------------------------------
+  - platform: gpio
+    pin: 
+      number: "$pir_sensor"
+    name: "${friendly_name} Motion"
+    id: motion
+    device_class: motion
+    filters:
+      - delayed_off: 10s
+  # Templated
+    on_press:
+      then:
+        - deep_sleep.prevent: deep_sleep_component
+        - logger.log: 
+            format: "MOTION - SLEEP PREVENT"
+            level: info
+        # - display.page.show: pagerun
+        # - delay: 100ms
+        # - component.update: eink42
+        
+    on_release:
+      if:
+        condition:
+          binary_sensor.is_off: charger
+        then:
+          - binary_sensor.template.publish:
+              id: time_accept_update
+              state: False
+          - logger.log:
+              format: "MOTION OFF - SLEEP ENTER 4.5s"
+              level: info
+          - text_sensor.template.publish:
+              id: online_status
+              state: "Offline"
+          - delay: 4.5s
+          - deep_sleep.enter: deep_sleep_component
+
+#-------------------------------------------
+# Battery charge status 
+# enabled prevent deepsleep
+#-------------------------------------------
+  - platform: gpio
+    pin: 
+      number: "$charging_sensor"
+    name: "${friendly_name} Battery Charge"
+    id: charger
+    entity_category: config
+    publish_initial_state: true
+    on_press:
+      then:
+        - switch.turn_on: battery_measure
+        - deep_sleep.prevent: deep_sleep_component
+        - if:
+            condition:
+              binary_sensor.is_on: time_accept_update
+            then:
+              component.update: eink42
+        - delay: 200ms
+        - while:
+            condition:
+              and:
+                - binary_sensor.is_on: charger
+                - sensor.in_range:
+                    id: batlevel
+                    below: 99
+            then:
+              - delay: 500ms
+              - light.turn_on: greenled
+              - delay: 500ms
+              - light.turn_off: greenled
+
+        - if:
+            condition:
+              - binary_sensor.is_on: charger
+              - sensor.in_range:
+                  id: batlevel
+                  above: 99
+            then:
+              - light.turn_on: greenled
+              - if:
+                  condition:
+                    binary_sensor.is_on: time_accept_update
+                  then:
+                    component.update: eink42
+
+    on_release:
+      then:
+        - light.turn_off: greenled  
+        - if:
+            condition:
+              binary_sensor.is_on: time_accept_update
+            then:
+              - component.update: eink42
+    
+#-------------------------------------------
+# Button 1 Left
+#-------------------------------------------
+  - platform: gpio
+    name: "${friendly_name} Switch Button 1"
+    pin:
+      number: "$button_1"
+    id: button1
+    internal: true
+    filters:
+      - invert:
+      - delayed_on: 10ms
+    on_press:
+      then:
+        - switch.template.publish:
+            id: buttonleft
+            state: !lambda |-
+              if (id(buttonleft).state) {
+                return false;
+              } else {
+                return true;
+              }
+
+#-------------------------------------------
+# Button 2 Middle
+#-------------------------------------------
+  - platform: gpio
+    name: "${friendly_name} Switch Button 2"
+    pin:
+      number: "$button_2"
+    id: button2
+    internal: true
+    filters:
+      - invert:
+      - delayed_on: 10ms
+    on_press:
+      then:
+#        - homeassistant.service:  
+#            service: switch.toggle
+#            data:
+#              entity_id: switch.0x00158d0005c1318c_l2
+        - switch.template.publish:
+            id: buttonmiddle
+            state: !lambda |-
+              if (id(buttonmiddle).state) {
+                return false;
+              } else {
+                return true;
+              }
+
+#-------------------------------------------
+# Button 3 Right
+#-------------------------------------------
+  - platform: gpio
+    name: "${friendly_name} Switch Button 3"
+    pin:
+      number: $button_3 
+    id: button3
+    internal: true
+    filters:
+      - invert:
+      - delayed_on: 10ms
+    on_press:
+      then: 
+        - switch.template.publish:
+            id: buttonright
+            state: !lambda |-
+              if (id(buttonright).state) {
+                return false;
+              } else {
+                return true;
+              }
+
+#-------------------------------------------
+# Meteoalarm - import home assistant custom component
+#-------------------------------------------
+  - platform: homeassistant
+    internal: true
+    id: meteoalarm
+    entity_id: $meteoalarm_event
+
+#-------------------------------------------
+# Magnet contact sensors - import home assistant door and window sensors
+#-------------------------------------------
+#1 Zadverie
+  - platform: homeassistant
+    internal: true
+    id: magnet_zadverie
+    entity_id: $contact_hall
+
+#2 Chodba
+
+#3 Spálňa
+  - platform: homeassistant
+    internal: true
+    id: magnet_spalna
+    entity_id: $contact_bedroom
+    
+#4 Kuchyňa
+  - platform: homeassistant
+    internal: true
+    id: magnet_kuchyna
+    entity_id: $contact_kitchen
+    
+#5 Obývacia izba
+  - platform: homeassistant
+    internal: true
+    id: magnet_obyv1
+    entity_id: $contact_livingroom1
+  - platform: homeassistant
+    internal: true
+    id: magnet_obyv2
+    entity_id: $contact_livingroom2
+    
+#6 Kúpeľňa
+  - platform: homeassistant
+    internal: true
+    id: magnet_kup
+    entity_id: $contact_bathroom
+
+#7 Detská izba
+  - platform: homeassistant
+    internal: true
+    id: magnet_dets
+    entity_id: $contact_kidsroom
+
+#8 Chladnička
+  - platform: homeassistant
+    internal: true
+    id: magnet_fridge
+    entity_id: $contact_fridge
+
+#9 Pivnica
+  - platform: homeassistant
+    internal: true
+    id: magnet_piv1
+    entity_id: $contact_basement1
+  - platform: homeassistant
+    internal: true
+    id: magnet_piv2
+    entity_id: $contact_basement2
+  - platform: homeassistant
+    internal: true
+    id: magnet_piv3
+    entity_id: $contact_basement3
+
+#10 Pracovňa
+#11 Roof
+#12 Atelier
+  - platform: homeassistant
+    internal: true
+    id: magnet_atelier1
+    entity_id: $contact_atelier1
+  - platform: homeassistant
+    internal: true
+    id: magnet_atelier2
+    entity_id: $contact_atelier2
+
+#-------------------------------------------
+# Intervals
+#-------------------------------------------
+interval:
+  - interval: 10s
+    then:
+      - switch.turn_on: battery_measure
+
+#-------------------------------------------
+# SWITCHES
+#-------------------------------------------
+switch:
+#-------------------------------------------
+# Battery ADC update switch - connect on MCU 10k to Base NPN3904 and BatVCC 100k to base PNP3906 transistor
+# low power consuption measure battery
+#-------------------------------------------
+  - platform: gpio
+    name: "${friendly_name} Battery - Measure"
+    pin: "$battery_adc_switch"
+    id: battery_measure
+    on_turn_on:
+      then: 
+        - delay: 150ms
+        - component.update: batlevel
+        - delay: 100ms
+        - switch.turn_off: battery_measure
+    entity_category: config
+
+#-------------------------------------------
+# Template Button 1 Left
+#-------------------------------------------
+  - platform: template
+    name: "${friendly_name} Button Left"
+    id: buttonleft
+    icon: mdi:view-week
+    optimistic: true
+    restore_state: on
+    on_turn_on:
+      then:
+        - light.turn_on:
+            id: greenled
+        - delay: 8ms
+        - component.update: eink42
+        - light.turn_off:
+            id: greenled
+    on_turn_off:
+      then:
+        - light.turn_on:
+            id: greenled
+        - delay: 8ms
+        - component.update: eink42
+        - light.turn_off:
+            id: greenled
+
+#-------------------------------------------
+# Template Button 2 Middle
+#-------------------------------------------
+  - platform: template
+    name: "${friendly_name} Button Middle"
+    id: buttonmiddle
+    icon: mdi:view-week
+    optimistic: true
+    restore_state: on
+    on_turn_on:
+      then:
+        - light.turn_on:
+            id: greenled
+        - delay: 8ms
+        - component.update: eink42
+        - light.turn_off:
+            id: greenled
+    on_turn_off:
+      then:
+        - light.turn_on:
+            id: greenled
+        - delay: 8ms
+        - component.update: eink42
+        - light.turn_off:
+            id: greenled
+
+#-------------------------------------------
+# Template Button 3 Right
+#-------------------------------------------
+  - platform: template
+    name: "${friendly_name} Button Right"
+    id: buttonright
+    icon: mdi:view-week
+    optimistic: true
+    restore_state: on
+    on_turn_on:
+      then:
+        - light.turn_on:
+            id: greenled
+        - delay: 8ms
+        - component.update: eink42
+        - light.turn_off:
+            id: greenled
+    on_turn_off:
+      then:
+        - light.turn_on:
+            id: greenled
+        - delay: 10ms
+        - component.update: eink42
+        - light.turn_off:
+            id: greenled
+
+#-------------------------------------------
+# TEXT SENSORS
+#-------------------------------------------
+text_sensor:
+#-------------------------------------------
+# Online state mcu
+#-------------------------------------------
+  - platform: template
+    id: online_status
+    name: "${friendly_name} Status"
+    lambda: |-
+      return {"Loading"};
+    icon: "mdi:power-standby"
+    update_interval: never
+    entity_category: diagnostic
+    
+#-------------------------------------------
+# Charger text sensor
+#-------------------------------------------
+  - platform: template
+    name: "${friendly_name} Battery status"
+    icon: mdi:power-plug
+    id: text_charge
+    lambda: |-
+       return {"Loading"};
+    update_interval: never
+    entity_category: config
+
+#-------------------------------------------
+# Room Airquality import home assistant template sensor
+#-------------------------------------------
+  - platform: homeassistant
+    internal: true
+    id: airqualityroom
+    entity_id: $airquality_room
+
+#-------------------------------------------
+# Energy consumption import home assistant template sensor
+#-------------------------------------------
+  - platform: homeassistant
+    internal: true
+    id: energyconsumption
+    entity_id: $energy_consumption
+
+#        - lambda: id(temp_temp).publish_state(42.0);
+#        - globals.set:
+#            id: airqualityroom_global
+#            value: !lambda 'return id(airqualityroom).state.c_str();'
+
+#  - platform: template
+ #   name: "${friendly_name} Air Indoor"
+ #   id: airqualityroom_temp
+ #   lambda: |-
+#      return id(airqualityroom_global);
+
+#-------------------------------------------
+# Calendar tiimsvk - import home assistant template sensor
+#-------------------------------------------
+  - platform: homeassistant
+    internal: true
+    id: calendar
+    entity_id: $calendar_event
+    attribute: message
+
+  - platform: homeassistant
+    internal: true
+    id: calendar_time
+    entity_id: $calendar_event_time
+
+#-------------------------------------------
+# Calendar meniny - import home assistant template sensor
+#-------------------------------------------
+  - platform: homeassistant
+    internal: true
+    id: calendar_name
+    entity_id: $calendar_nameday
+    attribute: message
+
+#-------------------------------------------
+# Calendar odpady - import home assistant template sensor
+#-------------------------------------------
+  - platform: homeassistant
+    internal: true
+    id: calendar_odpad
+    entity_id: $calendar_waste
+    attribute: message
+
+  - platform: homeassistant
+    internal: true
+    id: calendar_odpad_time
+    entity_id: $calendar_waste_time
+
+#-------------------------------------------
+# Meteoalarm import home assistant sensor
+#-------------------------------------------
+  - platform: homeassistant
+    internal: true
+    id: meteoalarm_event
+    entity_id: $meteoalarm_event
+    attribute: event
+
+#-------------------------------------------
+# Wheater import home assistant sensor
+#-------------------------------------------
+##condition now
+  - platform: homeassistant
+    internal: true
+    id: weather_now
+    entity_id: $weather_condition
+##condition forecast
+#  - platform: homeassistant
+#    internal: true
+#    id: condition_forecast
+#    entity_id: sensor.openweathermap_forecast_condition
+#-------------------------------------------
+# Five days forecat wheater - import home assistant template sensor
+#-------------------------------------------
+  - platform: homeassistant
+    internal: true
+    entity_id: $weather_forecast
+    id: weatherdays
+    
+#-------------------------------------------
+# Days of week text - import home assistant template sensor
+#-------------------------------------------
+  - platform: homeassistant
+    internal: true
+    entity_id: $calendar_dayofweek
+    id: days
+    on_value:
+      then:
+         - display.page.show: pagerun
+         - delay: 100ms
+         - logger.log:
+             format: "update all sensor done"
+             level: info
+         - binary_sensor.template.publish:
+            id: time_accept_update
+            state: True
+         - component.update: eink42
+
+#-------------------------------------------
+# DISPLAY
+#-------------------------------------------
+display:
+  - platform: waveshare_epaper
+    cs_pin: "$eink_cs_pin"
+    dc_pin: "$eink_dc_pin"
+    busy_pin: "$eink_busy_pin"
+    reset_pin: "$eink_reset_pin"
+    model: 4.20in
+    update_interval: never
+    id: eink42
+    pages:
+#-------------------------------------------
+# PAGE 1 - PAGE RUN
+#-------------------------------------------
+      - id: pagerun
+        lambda: |-
+          //--------------------------------------------------------------------------
+          // START PAGE - log updating display
+          //--------------------------------------------------------------------------
+          ESP_LOGI("display", "Updating Eink42 Display...");
+          
+          //--------------------------------------------------------------------------
+          // Define wheaterdays to string
+          //--------------------------------------------------------------------------
+          std::string weather_days = id(weatherdays).state;
+          
+          //--------------------------------------------------------------------------
+          // Map weather states to MDI characters.
+          //--------------------------------------------------------------------------
+          std::map<std::string, std::string> weather_icon_map
+            {
+              {"cloudy", "\U000F0590"},
+              {"cloudy-alert", "\U000F0F2F"},
+              {"cloudy-arrow-right", "\U000F0E6E"},
+              {"fog", "\U000F0591"},
+              {"hail", "\U000F0592"},
+              {"hazy", "\U000F0F30"},
+              {"hurricane", "\U000F0898"},
+              {"lightning", "\U000F0593"},
+              {"lightning-rainy", "\U000F067E"},
+              {"night", "\U000F0594"},
+              {"clear-night", "\U000F0594"},
+              {"night-partly-cloudy", "\U000F0F31"},
+              {"partlycloudy", "\U000F0595"},
+              {"partly-lightning", "\U000F0F32"},
+              {"partly-rainy", "\U000F0F33"},
+              {"partly-snowy", "\U000F0F34"},
+              {"partly-snowy-rainy", "\U000F0F35"},
+              {"pouring", "\U000F0596"},
+              {"rainy", "\U000F0597"},
+              {"snowy", "\U000F0598"},
+              {"snowy-heavy", "\U000F0F36"},
+              {"snowy-rainy", "\U000F067F"},
+              {"sunny", "\U000F0599"},
+              {"sunny-alert", "\U000F0F37"},
+              {"sunny-off", "\U000F14E4"},
+              {"sunset", "\U000F059A"},
+              {"sunset-down", "\U000F059B"},
+              {"sunset-up", "\U000F059C"},
+              {"tornado", "\U000F0F38"},
+              {"windy", "\U000F059D"},
+              {"windy-variant", "\U000F059E"},
+            };
+          
+          //--------------------------------------------------------------------------
+          // Divider char
+          //--------------------------------------------------------------------------
+          char delimm = ';';
+          
+          //--------------------------------------------------------------------------
+          // INTERNAL TEMPERATURE AND HUMIDITY SENSOR - AHT10
+          //--------------------------------------------------------------------------
+          it.printf(0, 2, id(fontpixel_height), "%.1fŘ%.0f%%", id(aht_temp).state, id(aht_humidity).state);
+          
+          //--------------------------------------------------------------------------
+          // METEOALARM SENSOR - print text alarm
+          //--------------------------------------------------------------------------
+          if (id(meteoalarm).state) {
+            it.printf(66, -3, id(fonttext2), "%s", id(meteoalarm_event).state.c_str());
+          }
+          
+          //--------------------------------------------------------------------------
+          // WIFI SIGNAL SENSOR mdi print
+          //--------------------------------------------------------------------------
+          int signal_wifi = int(id(signal_strange).state);  //convert state to int
+          
+          if (signal_wifi < 0 && signal_wifi >= -50) {
+            it.printf(386, 4, id(fonticon), TextAlign::TOP_RIGHT, "\U000F08BE");
+          }
+          if (signal_wifi < -50 && signal_wifi >= -70) {
+            it.printf(386, 4, id(fonticon), TextAlign::TOP_RIGHT, "\U000F08BD");
+          }
+          if (signal_wifi < -70 && signal_wifi >= -100) {
+            it.printf(386, 4, id(fonticon), TextAlign::TOP_RIGHT, "\U000F08BC");
+          }
+          else {
+            it.printf(386, 4, id(fonticon), TextAlign::TOP_RIGHT, "\U000F08BF");
+          }
+           
+          //--------------------------------------------------------------------------
+          // BATTERY SENSOR - mdi print
+          //--------------------------------------------------------------------------
+          float bat_level = (id(batlevel).state);  //convert batlevel state to float
+          //>100%
+          if (bat_level >= 98) {
+            it.printf(it.get_width() -1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F0079");
+          }
+          //>90%
+          else if (bat_level < 98 && bat_level >= 90) {
+            it.printf(it.get_width() -1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F0082");
+          }
+          //>80%
+          else if (bat_level < 90 && bat_level >= 80) {
+            it.printf(it.get_width() - 1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F0081");
+          }
+          //>70%
+          else if (bat_level < 80 && bat_level >= 70) {
+            it.printf(it.get_width() - 1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F0080");
+          }
+          //>60%
+          else if (bat_level < 70 && bat_level >= 60) {
+            it.printf(it.get_width() - 1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F007F");
+          }
+          //>50%
+          else if (bat_level < 60 && bat_level >= 50) {
+            it.printf(it.get_width() - 1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F007E");
+          }
+          //>40%
+          else if (bat_level < 50 && bat_level >= 40) {
+            it.printf(it.get_width() - 1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F007D");
+          }
+          //>30%
+          else if (bat_level < 40 && bat_level >= 30) {
+            it.printf(it.get_width() - 1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F007C");
+          }
+          //>20%
+          else if (bat_level < 30 && bat_level >= 20) {
+            it.printf(it.get_width() - 1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F007B");
+          }
+          //>10%
+          else if (bat_level < 20 && bat_level >= 10) {
+            it.printf(it.get_width() - 1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F007A");
+          }
+          //>0%
+          else {
+            it.printf(it.get_width() - 1, 3, id(fonticon), TextAlign::TOP_RIGHT, "\U000F0083");
+          }
+          
+          //--------------------------------------------------------------------------
+          // BATTERY CHARGE SENSOR - mdi print
+          //--------------------------------------------------------------------------
+          if (id(charger).state)  {
+            if (bat_level >= 98) {
+              it.printf(392, 3, id(fonticon), TextAlign::TOP_CENTER, "\U000F0090");
+            } else {
+              it.printf(392, 3, id(fonticon), TextAlign::TOP_CENTER, "\U000F0086");
+            }
+          }
+         
+          //--------------------------------------------------------------------------
+          // LINE
+          //--------------------------------------------------------------------------
+          it.line(0, 19, 393, 19);
+          
+          //--------------------------------------------------------------------------
+          // TIME
+          //--------------------------------------------------------------------------
+          it.strftime(8, 5, id(fontlarge), "%H:%M", id(ds1307_time).now());
+          it.strftime(70, 112, id(font1), "%d.%m.%Y", id(ds1307_time).now());
+          it.printf(9, 112, id(font1), "%s", id(days).state.c_str());
+          
+          //--------------------------------------------------------------------------
+          // MENINY
+          //--------------------------------------------------------------------------
+          it.printf(9, 140, id(fonttext2), "%s", id(calendar_name).state.c_str());
+          
+          //--------------------------------------------------------------------------
+          // WEATHER NOW
+          //--------------------------------------------------------------------------
+          
+          // temp, humidity, pressure
+          it.printf(260, 16, id(font2), "%.1f", id(temp_now_temp).state);
+          it.print(320, 23, id(font1), "°C");
+          it.printf(393, 23, id(font1), TextAlign::TOP_RIGHT, "%.0f%%", id(humidity_now).state);
+          it.printf(393, 47, id(font1), TextAlign::TOP_RIGHT, "%.0f hPa", id(pressure_now).state);
+          
+          // line
+          it.line(260, 77, 393, 77);
+          
+          // uv, wind, rain
+          it.printf(260, 80, id(font1), "%.1f UV", id(uv_now).state);
+          it.printf(310, 80, id(fonticon), "\U000F059D");
+          it.printf(393, 76, id(fonttext2), TextAlign::TOP_RIGHT, "%.1f km/h", id(wind_now).state);
+          it.printf(310, 96, id(fonticon), "\U000F0597");
+          it.printf(384, 90, id(fonttext2), TextAlign::TOP_RIGHT, "%.1f mm", id(rain_now).state);
+          
+          // condition now
+          it.printf(200, 20, id(fontweater_large), TextAlign::TOP_CENTER, "%s", weather_icon_map[id(weather_now).state.c_str()].c_str());
+          
+          //--------------------------------------------------------------------------
+          // WEATHER FORECAST
+          //--------------------------------------------------------------------------
+          std::size_t currentWeather, previousWeather = 0;
+          char delimWeather = '#';
+          currentWeather = weather_days.find(delimWeather);
+          
+          int wx = 175;    // start position x 
+          int wy = 110;   // start position y 
+          /* Loop for the single string day */ 
+          for (int i=0; i<4; i++) { 
+          
+            std::string forecastInfo = weather_days.substr(previousWeather, currentWeather - previousWeather).c_str();
+            std::size_t currentInfo, previousInfo = 0;
+            currentInfo = forecastInfo.find(delimm);
+          
+            /* Inner loop to get single information for each day */
+            for (int j=0; j<3; j++) { 
+          
+              if (j == 0) {
+                    // Day (Mon/Tue...) 
+                    it.printf(wx, wy + 44, id(fonttext2), TextAlign::TOP_CENTER, "%s", forecastInfo.substr(previousInfo, currentInfo - previousInfo).c_str());
+                    //it.line(wx + 51, wy + 5, wx + 51, wy + 65);
+              } else if (j == 1) {
+                    // Temperature 
+                    it.printf(wx, wy + 32, id(fonttext3), TextAlign::TOP_CENTER, "%s", forecastInfo.substr(previousInfo, currentInfo - previousInfo).c_str());
+              } else if (j == 2) {
+                    // Weather Icon                     
+                    it.printf(wx, wy, id(fontweater_medium), TextAlign::TOP_CENTER, "%s", weather_icon_map[forecastInfo.substr(previousInfo, currentInfo - previousInfo).c_str()].c_str() );
+              }
+              previousInfo = currentInfo + 1;
+              currentInfo = forecastInfo.find(delimm, previousInfo);
+            }
+            wx += 63; // move right 50 pixels and output next day 
+            previousWeather = currentWeather + 1;
+            currentWeather = weather_days.find(delimWeather, previousWeather);
+          }
+          
+          //--------------------------------------------------------------------------
+          // CONSUMPTION
+          //--------------------------------------------------------------------------
+          std::string energy_house = id(energyconsumption).state;
+          std::size_t currentEnergy, previousEnergy = 0;
+          char delimEnergy = '#';
+          currentEnergy = energy_house.find(delimEnergy);
+          
+          int x5 = 27, y5 = 205, offsetx = 100;
+          for (int i=0; i<4; i++) {
+            if (i == 0) {
+              it.printf(x5, y5, id(font1), TextAlign::BOTTOM_LEFT, "%skWh", energy_house.substr(previousEnergy, currentEnergy - previousEnergy).c_str());
+            }
+            else if (i == 1) {
+              it.printf(x5 + offsetx, y5, id(font1), TextAlign::BOTTOM_LEFT, "%sm³", energy_house.substr(previousEnergy, currentEnergy - previousEnergy).c_str());
+            }
+            else if (i == 2) {
+              it.printf(x5 + (offsetx * 2), y5, id(font1), TextAlign::BOTTOM_LEFT, "%sl", energy_house.substr(previousEnergy, currentEnergy - previousEnergy).c_str());
+            }
+            else if (i == 3) {
+              it.printf(x5 + (offsetx * 3), y5, id(font1), TextAlign::BOTTOM_LEFT, "%sW", energy_house.substr(previousEnergy, currentEnergy - previousEnergy).c_str());
+            }
+            previousEnergy = currentEnergy + 1;
+            currentEnergy = energy_house.find(delimEnergy, previousEnergy);
+          }
+          
+          int x3 = 27, x4 = 100, y2 = 205;
+          it.line(0, y2 + 2, 397, y2 + 2);
+          it.printf(0, y2 - 2, id(fonticon_room), TextAlign::BOTTOM_LEFT, "\U000F1904");
+          it.printf(x4, y2 - 2, id(fonticon_room), TextAlign::BOTTOM_LEFT, "\U000F0238");
+          it.printf(2 * x4, y2 - 2, id(fonticon_room), TextAlign::BOTTOM_LEFT, "\U000F058C");
+          it.printf(3 * x4, y2 - 2, id(fonticon_room), TextAlign::BOTTOM_LEFT, "\U000F1A73");
+          
+          //--------------------------------------------------------------------------
+          // ROOM AIRQUALITY AND CONTACT SENSORS
+          //--------------------------------------------------------------------------
+          // room icon and open
+          int x1 = 15, y1 = 209, z1 = 12, q1 = 240, p1 = 41;
+          
+          //----- Zádverie -----
+          it.printf(x1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F109E");
+          if (id(magnet_zadverie).state) {
+            it.rectangle(x1 - 13, y1, 26, 22);
+          }
+          
+          //-------------------Chodba
+          it.printf(x1 + p1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F0F91");
+          //if (id(magnet_chodba).state) {
+          //  it.printf(51, 224, id(fonttext3), TextAlign::TOP_CENTER, "ř");
+          //}
+           
+          //-------------------Spálňa
+          it.printf(x1 + 2 * p1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F02E3");
+          if (id(magnet_spalna).state) {
+            it.rectangle(x1 + 2 * p1 - 13, y1, 27, 22);
+          }
+           
+          //-------------------Kuchyňa
+          it.printf(x1 + 3 * p1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F04DE");
+          if (id(magnet_kuchyna).state) {
+            it.rectangle(x1 + 3 * p1 - 12, y1, 24, 22);
+          }
+          
+          //-------------------Living room
+          it.printf(x1 + 4 * p1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F04B9");
+          if (id(magnet_obyv1).state) {
+            it.rectangle(x1 + 4 * p1 - 13, y1, 27, 22);
+          }
+          if (id(magnet_obyv2).state) {
+            it.rectangle(x1 + 4 * p1 - 13, y1, 27, 22);
+          }
+          
+          //-------------------Bathroom
+          it.printf(x1 + 5 * p1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F1819");
+          if (id(magnet_kup).state) {
+            it.rectangle(x1 + 5 * p1 - 13, y1, 26, 22);
+          }
+          
+          //-------------------Kids room
+          it.printf(x1 + 6 * p1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F18FB");
+          if (id(magnet_dets).state) {
+            it.rectangle(x1 + 6 * p1 - 13, y1, 26, 22);
+          }
+          
+          //-------------------Basement
+          it.printf(x1 + 7 * p1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F0074");
+          if (id(magnet_piv1).state) {
+            it.rectangle(x1 + 7 * p1 - 13, y1, 25, 22);
+          }
+          if (id(magnet_piv2).state) {
+            it.rectangle(x1 + 7 * p1 - 13, y1, 25, 22);
+          }
+          if (id(magnet_piv3).state) {
+            it.rectangle(x1 + 7 * p1 - 13, y1, 25, 22);
+          }
+          
+          //-------------------Roof
+          it.printf(x1 + 8 * p1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F112B");
+         
+          //-------------------Atelier 
+          it.printf(x1 + 9 * p1, y1, id(fonticon_room), TextAlign::TOP_CENTER, "\U000F0E0C");
+          if (id(magnet_atelier1).state) {
+            it.rectangle(x1 + 9 * p1 - 13, y1, 25, 22);
+          }
+          if (id(magnet_atelier2).state) {
+            it.rectangle(x1 + 9 * p1 - 13, y1, 25, 22);
+          }
+          
+          //room temp and humidity
+          std::string air_room = id(airqualityroom).state;
+          std::size_t currentRoom, previousRoom = 0;
+          char delimRoom = '#';
+          currentRoom = air_room.find(delimRoom);
+          
+          int x = 15, z = 12, q = 232;
+          for (int i=0; i<10; i++) { 
+          
+            std::string roomInfo = air_room.substr(previousRoom, currentRoom - previousRoom).c_str();
+            std::size_t temperature_air, humidity_air = 0;
+            char delimair = '/';
+            temperature_air = roomInfo.find(delimair);
+          
+            /* Inner loop to get single information for each day */
+            for (int k=0; k<2; k++) { 
+          
+              if (k == 0) {
+                    // Temperature 
+                    it.printf(x, q, id(fonttext3), TextAlign::TOP_CENTER, "%s", roomInfo.substr(humidity_air, temperature_air - humidity_air).c_str());
+              } else if (k == 1) {
+                    // Humidity 
+                    it.printf(x, q + z, id(fonttext3), TextAlign::TOP_CENTER, "%s", roomInfo.substr(humidity_air, temperature_air - humidity_air).c_str());
+              }
+              humidity_air = temperature_air + 1;
+              temperature_air = roomInfo.find(delimair, humidity_air);
+            }
+            x += 41; // move right 50 pixels and output next day 
+            previousRoom = currentRoom + 1;
+            currentRoom = air_room.find(delimRoom, previousRoom);
+          }
+          
+          //--------------------------------------------------------------------------
+          // BUTTON
+          //--------------------------------------------------------------------------
+          it.print(0, 275, id(studiotiim), TextAlign::BOTTOM_LEFT, "©2022 StudioTiiM");
+          //BUTTON 1
+          it.rectangle(0, 274, 49, 24);
+          if (id(buttonleft).state) {
+            it.filled_rectangle(0, 274, 49, 24);
+            it.printf(25, 298, id(fonticon_room), COLOR_OFF, TextAlign::BOTTOM_CENTER, "\U000F070D");
+          } else {
+            it.printf(25, 298, id(fonticon_room), COLOR_ON, TextAlign::BOTTOM_CENTER, "\U000F070D");
+          }
+          
+          //BUTTON 2
+          it.rectangle(50, 274, 54, 24);
+          if (id(buttonmiddle).state) {
+            it.filled_rectangle(50, 274, 54, 24);
+            it.printf(76, 297, id(fonticon_room), COLOR_OFF, TextAlign::BOTTOM_CENTER, "\U000F0D62");
+          } else {
+            it.printf(76, 297, id(fonticon_room), COLOR_ON, TextAlign::BOTTOM_CENTER, "\U000F0D62");
+          }
+          
+          //BUTTON 3
+          it.rectangle(105, 274, 54, 24);
+          if (id(buttonright).state) {
+            it.filled_rectangle(105, 274, 54, 24);
+            it.printf(120, 298, id(fonticon_room), COLOR_OFF, TextAlign::BOTTOM_CENTER, "\U000F0E69");
+            it.printf(159, 298, id(fonttext3), COLOR_OFF, TextAlign::BOTTOM_RIGHT, "%.0f%%", id(garden).state);
+          } else {
+            it.printf(120, 298, id(fonticon_room), COLOR_ON, TextAlign::BOTTOM_CENTER, "\U000F0E69");
+            it.printf(158, 298, id(fonttext3), COLOR_ON, TextAlign::BOTTOM_RIGHT, "%.0f%%", id(garden).state);
+          }    
+          
+          //--------------------------------------------------------------------------
+          // CALENDAR WASTE
+          //--------------------------------------------------------------------------
+          it.printf(it.get_width() - 54, it.get_height() - 20, id(fonttext2), TextAlign::BOTTOM_RIGHT, "%s", id(calendar_odpad).state.c_str());
+          it.printf(it.get_width() - 18, it.get_height() - 22, id(fonttext3), TextAlign::BOTTOM_RIGHT, "%s", id(calendar_odpad_time).state.c_str());
+          it.printf(it.get_width(), it.get_height() - 22, id(fonticon), TextAlign::BOTTOM_RIGHT, "\U000F0A7A");
+          
+          //--------------------------------------------------------------------------
+          // CALENDAR EVENT
+          //--------------------------------------------------------------------------
+          it.printf(it.get_width() - 54, it.get_height() + 4, id(fonttext2), TextAlign::BOTTOM_RIGHT, "%s", id(calendar).state.c_str());
+          it.printf(it.get_width() - 18, it.get_height() + 2, id(fonttext3), TextAlign::BOTTOM_RIGHT, "%s", id(calendar_time).state.c_str());
+          it.printf(it.get_width(), it.get_height() + 1, id(fonticon), TextAlign::BOTTOM_RIGHT, "\U000F00ED");
+
+#-------------------------------------------
+# FONTS
+#-------------------------------------------
+font:
+  - file: 'fonts/studiotiim.ttf'
+    id: studiotiim
+    size: 14
+    glyphs:
+      ['0', '2', 'M', 'S', 'T', ' ', 'a', 'd', 'i', 'n', 'o', 't', 'u', '©',]
+
+  - file: 'fonts/steelfishedit.ttf'
+    id: font1
+    size: 24
+    glyphs:
+      ['!', ',', '.', '"', '%', '(', ')', '+', '-', ':', '°', '0',
+       '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
+       'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ' ', 'a', 'b', 'c', 'd', 'e', 'f',
+       'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+       'u', 'v', 'w', 'x', 'y', 'z','å', 'ä', 'č', 'ö', '/','º','µ','³','ý','Ý', Š, ľ,]
+
+  - file: 'fonts/font_bd.ttf'
+    id: font2
+    size: 54
+
+  - file: 'fonts/euxoi.ttf'
+    id: fonttext
+    size: 18
+    glyphs:
+      ['!', ',', '.', '"', '%', '(', ')', '+', '-', ':', '°', '0',
+       '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
+       'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
+       'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ' ', 'a', 'b', 'c', 'd', 'e', 'f',
+       'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+       'u', 'v', 'w', 'x', 'y', 'z','å', 'ä', 'č', 'ö', '/','º','µ','³','ý','Ý',]
+
+  - file: 'fonts/bahnschrift2.ttf'
+    id: fonttext2
+    size: 18
+    glyphs:
+      ['&', '@', '!', ',', '.', '"', '%', '(', ')', '+', '-', '_', ':', '°', '0',
+       '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
+       'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
+       'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ' ', 'a', 'b', 'c', 'd', 'e', 'f',
+       'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+       'u', 'v', 'w', 'x', 'y', 'z','å', 'ä', 'ö', '/','º','µ','³','ý','Ý', ž, á, š, Š, ľ, ó, Č, č, í, Ľ, ú, é]
+
+  - file: 'fonts/pixeloperator.ttf'
+    id: fonttext3
+    size: 14   
+    glyphs:
+      ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'Ř', 'ř', '°', 'C', '/', '%', '.',
+       'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
+       'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '-', 'W',]
+
+  - file: 'fonts/pixeloperator-height.ttf'
+    id: fontpixel_height
+    size: 18
+    glyphs:
+      ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'Ř', 'ř', '°', 'C', '/', '%', '.',
+       'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
+       'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+
+  - file: 'fonts/font-bd-large.ttf'
+    id: fontlarge
+    size: 100
+
+  - file: 'fonts/icons.ttf'
+    id: fonticon
+    size: 16 
+    glyphs: [
+      "\U000F0079", # battery full
+      "\U000F0082", # battery 90
+      "\U000F0081", # battery 80
+      "\U000F0080", # battery 70
+      "\U000F007F", # battery 60
+      "\U000F007E", # battery 50
+      "\U000F007D", # battery 40
+      "\U000F007C", # battery 30
+      "\U000F007B", # battery 20
+      "\U000F007A", # battery 10
+      "\U000F0083", # battery empty
+      "\U000F0086", # battery empty charging
+      "\U000F0090", # battery empty full 100%
+
+      "\U000F08BF", # no wifi
+      "\U000F08BC", # wifi low
+      "\U000F08BD", # mwifi middle
+      "\U000F08BE", # wifi high
+
+      "\U000F06A5", # power
+      "\U000F10C2", # temp
+      "\U000F058E", # HUMIDITY
+      "\U000F0875", # PRESSURE
+
+      "\U000F1358", # GAS
+      "\U000F1402", # MOTOR
+      "\U000F1357", # WATER TANK
+      "\U000F1067", # PUMP
+
+      "\U000F0A7A", # WASTE TRASH
+      "\U000F00ED", # CALENDAR
+      "\U000F04E0", # SUNGLASS UV
+      "\U000F059D", # WIND
+      "\U000F0597", # RAIN
+      "\U000F05B1", # WINDOW OPEN
+
+      "\U000F04B2" # SLEEP
+
+      ]
+
+  - file: 'fonts/icons.ttf'
+    id: fonticon_room
+    size: 24 
+    glyphs: [
+      "\U000F109E", # 1 VESTIBUL RACK COAT
+      "\U000F0F91", # 2 HALLWAY CLOSET
+      "\U000F02E3", # 3 BED
+      "\U000F04DE", # 4 STOVE KITCHEN
+      "\U000F04B9", # 5 SOFA LIVING ROOM
+      "\U000F18FB", # 6 TEDDY KIDS ROOM
+      "\U000F1819", # 7 BATHROOM
+      "\U000F0290", # 8 FRIDGE
+      "\U000F0074", # 9 barrel stair BASEMENT
+      "\U000F0379", # 10 MONITOR PRACOVŇA
+      "\U000F112B", # 11 ROOF
+      "\U000F0E0C", # 12 ATELIER
+      "\U000F1904", # ELEKTROMER
+      "\U000F0238", # PLYNOMER
+      "\U000F1A73", # SOLAR
+      "\U000F058C", # LEAK, VODOMER
+      "\U000F070D", # VACCUM
+      "\U000F0D62", # AC
+      "\U000F0E69", # TREE GARDEN PUMP
+      ]
+
+  - file: 'fonts/materialdesignicons-webfont.ttf'
+    id: fontweater_large
+    size: 96
+    glyphs: &mdi-weather-glyphs
+      - "\U000F0590" # mdi-weather-cloudy
+      - "\U000F0F2F" # mdi-weather-cloudy-alert
+      - "\U000F0E6E" # mdi-weather-cloudy-arrow-right
+      - "\U000F0591" # mdi-weather-fog
+      - "\U000F0592" # mdi-weather-hail
+      - "\U000F0F30" # mdi-weather-hazy
+      - "\U000F0898" # mdi-weather-hurricane
+      - "\U000F0593" # mdi-weather-lightning
+      - "\U000F067E" # mdi-weather-lightning-rainy
+      - "\U000F0594" # mdi-weather-night
+      - "\U000F0F31" # mdi-weather-night-partly-cloudy
+      - "\U000F0595" # mdi-weather-partly-cloudy
+      - "\U000F0F32" # mdi-weather-partly-lightning
+      - "\U000F0F33" # mdi-weather-partly-rainy
+      - "\U000F0F34" # mdi-weather-partly-snowy
+      - "\U000F0F35" # mdi-weather-partly-snowy-rainy
+      - "\U000F0596" # mdi-weather-pouring
+      - "\U000F0597" # mdi-weather-rainy
+      - "\U000F0598" # mdi-weather-snowy
+      - "\U000F0F36" # mdi-weather-snowy-heavy
+      - "\U000F067F" # mdi-weather-snowy-rainy
+      - "\U000F0599" # mdi-weather-sunny
+      - "\U000F0F37" # mdi-weather-sunny-alert
+      - "\U000F14E4" # mdi-weather-sunny-off
+      - "\U000F059A" # mdi-weather-sunset
+      - "\U000F059B" # mdi-weather-sunset-down
+      - "\U000F059C" # mdi-weather-sunset-up
+      - "\U000F0F38" # mdi-weather-tornado
+      - "\U000F059D" # mdi-weather-windy
+      - "\U000F059E" # mdi-weather-windy-variant
+
+  - file: 'fonts/materialdesignicons-webfont.ttf'
+    id: fontweater_medium
+    size: 36
+    glyphs: *mdi-weather-glyphs
+
+#-------------------------------------------
+# TIMER
+#-------------------------------------------
+time:
+  - platform: ds1307
+    id: ds1307_time
+    timezone: "Europe/Bratislava"
+    update_interval: never
+    on_time:
+      - seconds: 0  # needs to be set, otherwise every second this is triggered!
+        minutes: /1  # Trigger every minute
+#        hours: 23
+#        days_of_week: MON-FRI
+        then:
+          if:
+            condition:
+              binary_sensor.is_on: time_accept_update
+            then:
+              component.update: eink42
+
+  # time sync whit internet
+  - platform: homeassistant
+    id: time_home
+    timezone: "Europe/Bratislava"
+    on_time_sync:
+      then:
+        ds1307.write_time:
+
+#          lambda: !lambda |-
+#            //id(deep_sleep_component).set_sleep_duration(id(custom_sleep_time).state);
+#            auto time = id(time_home).now();
+#            int t_now = parse_number<int>(id(time_home).now().strftime("%H%M")).value();
+#            if ((t_now >= 2300) && (t_now <= 500))
+#            {
+#              id(deep_sleep_component).set_run_duration(10);
+#            }
+          
